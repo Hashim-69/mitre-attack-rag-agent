@@ -1,7 +1,4 @@
-"""
-MITRE ATT&CK RAG Agent
-A RAG system for answering security questions using MITRE ATT&CK data
-"""
+
 
 import json
 import requests
@@ -11,9 +8,6 @@ import chromadb
 import ollama
 import os
 
-# =============================================================================
-# STEP 1: Download and Process MITRE ATT&CK Data
-# =============================================================================
 
 def download_mitre_attack_data():
     """Download MITRE ATT&CK Enterprise data"""
@@ -57,9 +51,6 @@ def extract_techniques(attack_data: dict) -> List[Dict]:
     
     return documents
 
-# =============================================================================
-# STEP 2: Create Vector Database
-# =============================================================================
 
 def create_vector_database(documents: List[Dict], db_path="./mitre_attack_db"):
     """Create and populate ChromaDB with MITRE ATT&CK data"""
@@ -68,16 +59,16 @@ def create_vector_database(documents: List[Dict], db_path="./mitre_attack_db"):
     embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
     
     print("Initializing ChromaDB...")
-    # Use ChromaDB without default embedding function (we'll provide our own embeddings)
+    
     client = chromadb.PersistentClient(path=db_path)
     
-    # Delete existing collection if it exists (for fresh start)
+    
     try:
         client.delete_collection(name="mitre_attack")
     except:
         pass
     
-    # Create collection without embedding function - we'll add embeddings manually
+   
     collection = client.create_collection(
         name="mitre_attack",
         metadata={"hnsw:space": "cosine"}
@@ -108,10 +99,10 @@ def create_vector_database(documents: List[Dict], db_path="./mitre_attack_db"):
             metadatas.append(metadata)
             ids.append(f"doc_{i+j}")
         
-        # Generate embeddings using SentenceTransformer
+       
         embeddings = embedding_model.encode(texts, show_progress_bar=False).tolist()
         
-        # Add batch to collection with pre-computed embeddings
+       
         collection.add(
             documents=texts,
             embeddings=embeddings,
@@ -124,9 +115,7 @@ def create_vector_database(documents: List[Dict], db_path="./mitre_attack_db"):
     print("✓ Vector database created successfully!")
     return collection, embedding_model
 
-# =============================================================================
-# STEP 3: RAG Query System
-# =============================================================================
+
 
 class MITREAttackRAG:
     """RAG system for querying MITRE ATT&CK knowledge base"""
@@ -136,7 +125,7 @@ class MITREAttackRAG:
         self.embedding_model = embedding_model
         self.llm_model = llm_model
         
-        # Test if Ollama model is available
+       
         print(f"\nChecking if {llm_model} is available...")
         try:
             ollama.chat(model=llm_model, messages=[{'role': 'user', 'content': 'test'}])
@@ -148,7 +137,7 @@ class MITREAttackRAG:
     
     def retrieve(self, query: str, n_results: int = 5):
         """Retrieve relevant documents from vector database"""
-        # Generate query embedding
+        
         query_embedding = self.embedding_model.encode([query]).tolist()
         
         results = self.collection.query(
@@ -181,11 +170,10 @@ Provide a detailed, accurate answer based on the context above. If the context d
         print(f"Question: {question}")
         print('='*70)
         
-        # Retrieve relevant documents
+        
         print("→ Retrieving relevant information from MITRE ATT&CK...")
         results = self.retrieve(question, n_results=n_results)
         
-        # Format context
         context_parts = []
         for i, doc in enumerate(results['documents'][0]):
             meta = results['metadatas'][0][i]
@@ -193,7 +181,7 @@ Provide a detailed, accurate answer based on the context above. If the context d
         
         context = "\n\n".join(context_parts)
         
-        # Generate answer
+        
         print("→ Generating answer with Llama 3.2...")
         answer = self.generate_answer(question, context)
         
@@ -222,7 +210,6 @@ def main():
     
     db_path = "./mitre_attack_db"
     
-    # Check if database already exists
     if os.path.exists(db_path) and os.path.exists(f"{db_path}/chroma.sqlite3"):
         print("\n✓ Found existing vector database!")
         print("Loading database...")
@@ -234,15 +221,15 @@ def main():
     else:
         print("\n→ No existing database found. Creating new one...")
         
-        # Step 1: Download data
+    
         attack_data = download_mitre_attack_data()
         documents = extract_techniques(attack_data)
         print(f"✓ Extracted {len(documents)} documents from MITRE ATT&CK")
         
-        # Step 2: Create vector database
+        
         collection, embedding_model = create_vector_database(documents, db_path)
     
-    # Step 3: Initialize RAG system
+    
     print("\n" + "="*70)
     print("Initializing RAG System...")
     print("="*70)
@@ -263,7 +250,7 @@ def main():
         rag.query(question)
         print("\n")
     
-    # Step 5: Interactive mode
+  
     print("\n" + "="*70)
     print("Interactive Mode - Ask your own questions!")
     print("Type 'quit' or 'exit' to stop")
